@@ -1,3 +1,6 @@
+import java.util.HashMap;
+import java.util.Map;
+
 abstract class Room {
     private String roomType;
     private int numberOfBeds;
@@ -71,26 +74,75 @@ class SuiteRoom extends Room {
     }
 }
 
-public class UseCase2RoomInitialization {
+class RoomInventory {
+    private HashMap<String, Integer> availabilityMap;
+
+    public RoomInventory() {
+        availabilityMap = new HashMap<>();
+    }
+
+    public void addRoomType(String roomType, int availableCount) {
+        availabilityMap.put(roomType, availableCount);
+    }
+
+    public int getAvailability(String roomType) {
+        Integer count = availabilityMap.get(roomType);
+        if (count == null) {
+            return 0;
+        }
+        return count;
+    }
+
+    public void updateAvailability(String roomType, int newCount) {
+        if (availabilityMap.containsKey(roomType)) {
+            availabilityMap.put(roomType, newCount);
+        }
+    }
+
+    public void displayInventory() {
+        System.out.println("=== Current Room Inventory ===");
+        for (Map.Entry<String, Integer> entry : availabilityMap.entrySet()) {
+            System.out.println(entry.getKey() + " -> " + entry.getValue() + " rooms available");
+        }
+    }
+}
+
+public class UseCase3InventorySetup {
     public static void main(String[] args) {
         Room singleRoom = new SingleRoom();
         Room doubleRoom = new DoubleRoom();
         Room suiteRoom = new SuiteRoom();
 
-        int singleRoomAvailability = 10;
-        int doubleRoomAvailability = 6;
-        int suiteRoomAvailability = 3;
+        RoomInventory inventory = new RoomInventory();
+
+        inventory.addRoomType(singleRoom.getRoomType(), 10);
+        inventory.addRoomType(doubleRoom.getRoomType(), 6);
+        inventory.addRoomType(suiteRoom.getRoomType(), 3);
 
         System.out.println("=== Book My Stay App ===");
-        System.out.println("Use Case 2: Basic Room Types & Static Availability");
+        System.out.println("Use Case 3: Centralized Room Inventory Management");
         System.out.println();
 
         singleRoom.displayRoomDetails();
-        System.out.println("Availability    : " + singleRoomAvailability);
+        System.out.println("Availability    : " + inventory.getAvailability(singleRoom.getRoomType()));
+        System.out.println("--------------------------------------------");
 
         doubleRoom.displayRoomDetails();
-        System.out.println("Availability    : " + doubleRoomAvailability);
+        System.out.println("Availability    : " + inventory.getAvailability(doubleRoom.getRoomType()));
+        System.out.println("--------------------------------------------");
+
         suiteRoom.displayRoomDetails();
-        System.out.println("Availability    : " + suiteRoomAvailability);
+        System.out.println("Availability    : " + inventory.getAvailability(suiteRoom.getRoomType()));
+        System.out.println("--------------------------------------------");
+
+        System.out.println();
+        inventory.displayInventory();
+
+        System.out.println();
+        System.out.println("Updating Double Room availability to 5...");
+        inventory.updateAvailability("Double Room", 5);
+
+        System.out.println();
+        inventory.displayInventory();
     }
 }
