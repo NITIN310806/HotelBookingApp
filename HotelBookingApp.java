@@ -356,6 +356,7 @@ class CancellationService {
         this.allocator = allocator;
         this.history = history;
     }
+    
 
     public void cancelBooking(String guestName, String roomId) {
         Optional<BookingRecord> optional = history.findActiveByGuestAndRoomId(guestName, roomId);
