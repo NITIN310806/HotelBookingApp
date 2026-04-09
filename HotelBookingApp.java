@@ -1,159 +1,222 @@
+import java.io.*;
 import java.util.*;
-import java.util.concurrent.*;
 
-class BookingRequest {
+class BookingRecord12 implements Serializable {
+    private static final long serialVersionUID = 1L;
     private final String guestName;
     private final String roomType;
+    private final String roomId;
+    private final Date bookedAt;
+    private boolean cancelled;
+    private Date cancelledAt;
 
-    public BookingRequest(String guestName, String roomType) {
+    public BookingRecord12(String guestName, String roomType, String roomId) {
         this.guestName = guestName;
         this.roomType = roomType;
+        this.roomId = roomId;
+        this.bookedAt = new Date();
+        this.cancelled = false;
     }
 
     public String getGuestName() {
         return guestName;
     }
 
-    public String getRoomType() {
-        return roomType;
+    public String getGuestName() {
+        return guestName;
     }
-}
 
-class BookingResult {
-    private final String guest;
-    private final String roomType;
-    private final String roomId;
+    public String getRoomId() {
+        return roomId;
+    }
 
-    public BookingResult(String guest, String roomType, String roomId) {
-        this.guest = guest;
-        this.roomType = roomType;
-        this.roomId = roomId;
+    public boolean isCancelled() {
+        return cancelled;
+    }
+
+    public void cancel() {
+        if (cancelled) return;
+        this.cancelled = true;
+        this.cancelledAt = new Date();
     }
 
     @Override
     public String toString() {
-        return "[" + guest + ", " + roomType + ", " + roomId + "]";
+        String status = cancelled ? "CANCELLED" : "CONFIRMED";
+        String when = cancelled ? ", cancelledAt=" + cancelledAt : "";
+        return "BookingRecord{guest='" + guestName + "', roomType='" + roomType + "', roomId='" + roomId + "', bookedAt=" + bookedAt + when + ", status=" + status + '}';
     }
 }
 
-class ConcurrentBookingSystem {
-    private final Queue<BookingRequest> requests;
-    private final Map<String, Integer> inventory;
-    private final Set<String> allocatedRoomIds;
+class InventoryService12 implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private final Map<String, Integer> inventory = new LinkedHashMap<>();
 
-    public ConcurrentBookingSystem(List<BookingRequest> initialRequests) {
-        this.requests = new LinkedList<>(initialRequests);
-        this.inventory = new LinkedHashMap<>();
-        this.inventory.put("Single", 3);
-        this.inventory.put("Double", 2);
-        this.inventory.put("Suite", 1);
-        this.allocatedRoomIds = new HashSet<>();
+    public InventoryService12() {
+        inventory.put("Single", 3);
+        inventory.put("Double", 2);
+        inventory.put("Suite", 1);
     }
 
-    public BookingRequest fetchRequest() {
-        synchronized (requests) {
-            return requests.poll();
-        }
+    public boolean hasAvailability(String roomType) {
+        return inventory.getOrDefault(roomType, 0) > 0;
     }
 
-    public BookingResult attemptBooking(BookingRequest request) {
-        synchronized (this) {
-            String roomType = request.getRoomType();
-            if (!inventory.containsKey(roomType) || inventory.get(roomType) <= 0) {
-                return null;
-            }
-
-            String roomId;
-            do {
-                roomId = roomType.substring(0, 1).toUpperCase() + (int) (Math.random() * 1000);
-            } while (allocatedRoomIds.contains(roomId));
-
-            allocatedRoomIds.add(roomId);
-            inventory.put(roomType, inventory.get(roomType) - 1);
-            return new BookingResult(request.getGuestName(), roomType, roomId);
-        }
+    public void decrement(String roomType) {
+        inventory.put(roomType, inventory.get(roomType) - 1);
     }
 
-    public Map<String, Integer> getInventorySnapshot() {
-        synchronized (this) {
-            return new LinkedHashMap<>(inventory);
-        }
+    public void increment(String roomType) {
+        inventory.put(roomType, inventory.getOrDefault(roomType, 0) + 1);
     }
 
-    public int getAllocatedCount() {
-        synchronized (this) {
-            return allocatedRoomIds.size();
-        }
+    public Map<String, Integer> getInventory() {
+        return Collections.unmodifiableMap(inventory);
+    }
+
+    public void display() {
+        System.out.println("Inventory: " + inventory);
     }
 }
 
-class BookingWorker implements Runnable {
-    private final ConcurrentBookingSystem system;
-    private final List<BookingResult> confirmations;
+class BookingHistory12 implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private final List<BookingRecord12> history = new ArrayList<>();
 
-    public BookingWorker(ConcurrentBookingSystem system, List<BookingResult> confirmations) {
-        this.system = system;
-        this.confirmations = confirmations;
+    public void add(BookingRecord12 record) {
+        history.add(record);
     }
 
-    @Override
-    public void run() {
-        while (true) {
-            BookingRequest request = system.fetchRequest();
-            if (request == null) {
-                break;
-            }
-            BookingResult result = system.attemptBooking(request);
-            if (result != null) {
-                synchronized (confirmations) {
-                    confirmations.add(result);
-                }
-            } else {
-                System.out.println("No inventory for " + request.getGuestName() + " (" + request.getRoomType() + ")");
-            }
+    public List<BookingRecord12> all() {
+        return Collections.unmodifiableList(history);
+    }
+
+    public void display() {
+        System.out.println("Booking History:");
+        for (BookingRecord12 rec : history) {
+            System.out.println("  " + rec);
         }
     }
 }
 
-public class UseCase11ConcurrentBookingSimulation {
-    public static void main(String[] args) throws InterruptedException {
-        System.out.println("--- Use Case 11: Concurrent Booking Simulation (Thread Safety) ---");
+class PersistenceService12 {
+    private static final String FILE_NAME = "system_state.ser";
 
-        List<BookingRequest> requests = Arrays.asList(
-                new BookingRequest("Alice", "Single"),
-                new BookingRequest("Bob", "Double"),
-                new BookingRequest("Charlie", "Single"),
-                new BookingRequest("David", "Suite"),
-                new BookingRequest("Emma", "Single"),
-                new BookingRequest("Frank", "Double"),
-                new BookingRequest("Grace", "Single"),
-                new BookingRequest("Helen", "Double"),
-                new BookingRequest("Ivan", "Single"),
-                new BookingRequest("Judy", "Suite")
-        );
-
-        ConcurrentBookingSystem system = new ConcurrentBookingSystem(requests);
-        List<BookingResult> confirmations = Collections.synchronizedList(new ArrayList<>());
-
-        int workerCount = 4;
-        Thread[] workers = new Thread[workerCount];
-        for (int i = 0; i < workerCount; i++) {
-            workers[i] = new Thread(new BookingWorker(system, confirmations), "Worker-" + (i + 1));
-            workers[i].start();
+    public static void saveState(InventoryService12 inventory, BookingHistory12 history) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(FILE_NAME))) {
+            oos.writeObject(inventory);
+            oos.writeObject(history);
+            System.out.println("System state saved to " + FILE_NAME);
+        } catch (IOException e) {
+            System.err.println("Error saving state: " + e.getMessage());
         }
+    }
 
-        for (Thread worker : workers) {
-            worker.join();
+    public static SystemState12 loadState() {
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(FILE_NAME))) {
+            InventoryService12 inventory = (InventoryService12) ois.readObject();
+            BookingHistory12 history = (BookingHistory12) ois.readObject();
+            System.out.println("System state loaded from " + FILE_NAME);
+            return new SystemState12(inventory, history);
+        } catch (FileNotFoundException e) {
+            System.out.println("No saved state found, starting with fresh state.");
+            return new SystemState12(new InventoryService12(), new BookingHistory12());
+        } catch (IOException | ClassNotFoundException e) {
+            System.err.println("Error loading state: " + e.getMessage() + ". Starting with fresh state.");
+            return new SystemState12(new InventoryService12(), new BookingHistory12());
         }
+    }
+}
 
-        System.out.println("\nFinal inventory: " + system.getInventorySnapshot());
-        System.out.println("Total confirmed bookings: " + confirmations.size());
-        System.out.println("Allocated total (set): " + system.getAllocatedCount());
-        System.out.println("Confirmed records:");
-        for (BookingResult result : confirmations) {
-            System.out.println("  " + result);
+class SystemState12 {
+    private final InventoryService12 inventory;
+    private final BookingHistory12 history;
+
+    public SystemState12(InventoryService12 inventory, BookingHistory12 history) {
+        this.inventory = inventory;
+        this.history = history;
+    }
+
+    public InventoryService12 getInventory() {
+        return inventory;
+    }
+
+    public BookingHistory12 getHistory() {
+        return history;
+    }
+}
+
+class BookingService12 {
+    private final InventoryService12 inventory;
+    private final BookingHistory12 history;
+    private final Set<String> allocatedIds = new HashSet<>();
+
+    public BookingService12(InventoryService12 inventory, BookingHistory12 history) {
+        this.inventory = inventory;
+        this.history = history;
+        // Restore allocated IDs from history
+        for (BookingRecord12 record : history.all()) {
+            if (!record.isCancelled()) {
+                allocatedIds.add(record.getRoomId());
+            }
         }
+    }
 
-        System.out.println("--- End Use Case 11 ---");
+    public void confirmBooking(String guestName, String roomType) {
+        if (!inventory.hasAvailability(roomType)) {
+            System.out.println("No rooms available for " + guestName + " (" + roomType + ")");
+            return;
+        }
+        String roomId;
+        do {
+            roomId = roomType.substring(0, 1).toUpperCase() + (int) (Math.random() * 1000);
+        } while (allocatedIds.contains(roomId));
+        allocatedIds.add(roomId);
+        inventory.decrement(roomType);
+        BookingRecord12 record = new BookingRecord12(guestName, roomType, roomId);
+        history.add(record);
+        System.out.println("Confirmed booking: " + guestName + " -> " + roomId + " (" + roomType + ")");
+    }
+}
+
+public class UseCase12DataPersistenceRecovery {
+    public static void main(String[] args) {
+        System.out.println("--- Use Case 12: Data Persistence & System Recovery ---");
+
+        // Simulate initial state
+        InventoryService12 inventory = new InventoryService12();
+        BookingHistory12 history = new BookingHistory12();
+        BookingService12 bookingService = new BookingService12(inventory, history);
+
+        bookingService.confirmBooking("Alice", "Single");
+        bookingService.confirmBooking("Bob", "Double");
+        bookingService.confirmBooking("Charlie", "Single");
+
+        System.out.println("\nBefore persistence:");
+        inventory.display();
+        history.display();
+
+        // Save state
+        PersistenceService12.saveState(inventory, history);
+
+        // Simulate restart by loading state
+        System.out.println("\nSimulating system restart...");
+        SystemState12 loadedState = PersistenceService12.loadState();
+        InventoryService12 loadedInventory = loadedState.getInventory();
+        BookingHistory12 loadedHistory = loadedState.getHistory();
+
+        System.out.println("\nAfter recovery:");
+        loadedInventory.display();
+        loadedHistory.display();
+
+        // Continue operations
+        BookingService12 continuedService = new BookingService12(loadedInventory, loadedHistory);
+        continuedService.confirmBooking("David", "Suite");
+
+        System.out.println("\nAfter additional booking:");
+        loadedInventory.display();
+        loadedHistory.display();
+
+        System.out.println("--- End Use Case 12 ---");
     }
 }
