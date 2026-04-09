@@ -1,157 +1,229 @@
-import java.util.HashMap;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
-abstract class Room {
+class BookingRecord {
+    private String guestName;
     private String roomType;
-    private int numberOfBeds;
-    private double sizeInSqFt;
-    private double pricePerNight;
+    private String roomId;
+    private Date bookingTime;
 
-    public Room(String roomType, int numberOfBeds, double sizeInSqFt, double pricePerNight) {
+    public BookingRecord(String guestName, String roomType, String roomId) {
+        this.guestName = guestName;
         this.roomType = roomType;
-        this.numberOfBeds = numberOfBeds;
-        this.sizeInSqFt = sizeInSqFt;
-        this.pricePerNight = pricePerNight;
+        this.roomId = roomId;
+        this.bookingTime = new Date();
+    }
+
+    public String getGuestName() {
+        return guestName;
     }
 
     public String getRoomType() {
         return roomType;
     }
 
-    public int getNumberOfBeds() {
-        return numberOfBeds;
+    public String getRoomId() {
+        return roomId;
     }
 
-    public double getSizeInSqFt() {
-        return sizeInSqFt;
-    }
-
-    public double getPricePerNight() {
-        return pricePerNight;
-    }
-
-    public abstract String getFeatures();
-
-    public void displayRoomDetails() {
-        System.out.println("Room Type       : " + roomType);
-        System.out.println("Number of Beds  : " + numberOfBeds);
-        System.out.println("Size (sq.ft)    : " + sizeInSqFt);
-        System.out.println("Price per Night : Rs." + pricePerNight);
-        System.out.println("Features        : " + getFeatures());
-    }
-}
-
-class SingleRoom extends Room {
-    public SingleRoom() {
-        super("Single Room", 1, 180.0, 2000.0);
+    public Date getBookingTime() {
+        return bookingTime;
     }
 
     @Override
-    public String getFeatures() {
-        return "Suitable for 1 guest, compact and comfortable";
+    public String toString() {
+        return "BookingRecord{" +
+                "guestName='" + guestName + '\'' +
+                ", roomType='" + roomType + '\'' +
+                ", roomId='" + roomId + '\'' +
+                ", bookingTime=" + bookingTime +
+                '}';
     }
 }
 
-class DoubleRoom extends Room {
-    public DoubleRoom() {
-        super("Double Room", 2, 300.0, 3500.0);
+class BookingHistory {
+    private List<BookingRecord> bookings;
+
+    public BookingHistory() {
+        this.bookings = new ArrayList<>();
     }
 
-    @Override
-    public String getFeatures() {
-        return "Suitable for 2 guests, ideal for couples";
-    }
-}
-
-class SuiteRoom extends Room {
-    public SuiteRoom() {
-        super("Suite Room", 3, 500.0, 6000.0);
+    public void add(BookingRecord booking) {
+        bookings.add(booking);
     }
 
-    @Override
-    public String getFeatures() {
-        return "Premium room with living area and luxury amenities";
-    }
-}
-
-class RoomInventory {
-    private HashMap<String, Integer> availabilityMap;
-
-    public RoomInventory() {
-        availabilityMap = new HashMap<>();
+    public List<BookingRecord> getAll() {
+        return Collections.unmodifiableList(bookings);
     }
 
-    public void addRoomType(String roomType, int availableCount) {
-        availabilityMap.put(roomType, availableCount);
-    }
-
-    public int getAvailability(String roomType) {
-        Integer count = availabilityMap.get(roomType);
-        if (count == null) {
-            return 0;
-        }
-        return count;
-    }
-}
-
-class RoomSearchService {
-    private RoomInventory inventory;
-    private List<Room> rooms;
-
-    public RoomSearchService(RoomInventory inventory, List<Room> rooms) {
-        this.inventory = inventory;
-        this.rooms = rooms;
-    }
-
-    public void displayAvailableRooms() {
-        System.out.println("=== Available Rooms ===");
-        boolean found = false;
-
-        for (Room room : rooms) {
-            int availability = inventory.getAvailability(room.getRoomType());
-
-            if (availability > 0) {
-                room.displayRoomDetails();
-                System.out.println("Availability    : " + availability);
-                found = true;
+    public List<BookingRecord> getByRoomType(String roomType) {
+        List<BookingRecord> filtered = new ArrayList<>();
+        for (BookingRecord booking : bookings) {
+            if (booking.getRoomType().equalsIgnoreCase(roomType)) {
+                filtered.add(booking);
             }
         }
+        return Collections.unmodifiableList(filtered);
+    }
 
-        if (!found) {
-            System.out.println("No rooms are currently available.");
+    public int size() {
+        return bookings.size();
+    }
+}
+
+class BookingReportService {
+    public void printHistory(BookingHistory bookingHistory) {
+        System.out.println("-- Booking History (chronological) --");
+        for (BookingRecord record : bookingHistory.getAll()) {
+            System.out.println(record);
+        }
+    }
+
+    public void printSummary(BookingHistory bookingHistory) {
+        System.out.println("-- Booking Summary Report --");
+        System.out.println("Total confirmed bookings: " + bookingHistory.size());
+
+        Map<String, Integer> countByType = new HashMap<>();
+        for (BookingRecord record : bookingHistory.getAll()) {
+            countByType.put(record.getRoomType(), countByType.getOrDefault(record.getRoomType(), 0) + 1);
+        }
+
+        System.out.println("Confirmed bookings by room type:");
+        for (Map.Entry<String, Integer> entry : countByType.entrySet()) {
+            System.out.println("  " + entry.getKey() + ": " + entry.getValue());
+        }
+
+        if (bookingHistory.size() > 0) {
+            BookingRecord first = bookingHistory.getAll().get(0);
+            BookingRecord last = bookingHistory.getAll().get(bookingHistory.size() - 1);
+            System.out.println("First confirmed booking: " + first.getGuestName() + " (" + first.getRoomId() + ")");
+            System.out.println("Last confirmed booking: " + last.getGuestName() + " (" + last.getRoomId() + ")");
         }
     }
 }
 
-public class RoomSearch {
+class InventoryServiceNew {
+    private Map<String, Integer> inventory;
+
+    public InventoryServiceNew() {
+        inventory = new LinkedHashMap<>();
+        inventory.put("Single", 3);
+        inventory.put("Double", 2);
+        inventory.put("Suite", 1);
+    }
+
+    public boolean hasAvailability(String roomType) {
+        return inventory.getOrDefault(roomType, 0) > 0;
+    }
+
+    public void decrement(String roomType) {
+        inventory.put(roomType, inventory.get(roomType) - 1);
+    }
+
+    public void displayInventory() {
+        System.out.println("Inventory status: " + inventory);
+    }
+}
+
+class BookingServiceWithHistory {
+    private Queue<BookingRequest> requestQueue = new LinkedList<>();
+    private Map<String, Set<String>> allocatedRooms = new HashMap<>();
+    private Set<String> allAllocatedIds = new HashSet<>();
+
+    private InventoryServiceNew inventory;
+    private BookingHistory bookingHistory;
+
+    public BookingServiceWithHistory(InventoryServiceNew inventory, BookingHistory bookingHistory) {
+        this.inventory = inventory;
+        this.bookingHistory = bookingHistory;
+    }
+
+    public void addRequest(String guestName, String roomType) {
+        requestQueue.offer(new BookingRequest(guestName, roomType));
+    }
+
+    private String generateRoomId(String roomType) {
+        String id;
+        do {
+            id = roomType.substring(0, 1).toUpperCase() + (int) (Math.random() * 1000);
+        } while (allAllocatedIds.contains(id));
+        return id;
+    }
+
+    public void processBookings() {
+        while (!requestQueue.isEmpty()) {
+            BookingRequest req = requestQueue.poll();
+            String type = req.getRoomType();
+
+            if (inventory.hasAvailability(type)) {
+                String roomId = generateRoomId(type);
+                allAllocatedIds.add(roomId);
+
+                allocatedRooms.putIfAbsent(type, new HashSet<>());
+                allocatedRooms.get(type).add(roomId);
+
+                inventory.decrement(type);
+
+                BookingRecord record = new BookingRecord(req.getCustomerName(), type, roomId);
+                bookingHistory.add(record);
+
+                System.out.println("Reservation confirmed for " + req.getCustomerName() + " -> Room " + roomId);
+            } else {
+                System.out.println("No rooms available for " + req.getCustomerName() + " (" + type + ")");
+            }
+        }
+    }
+
+    public void displayAllocations() {
+        System.out.println("Allocated rooms: " + allocatedRooms);
+    }
+}
+
+class BookingRequest {
+    private String customerName;
+    private String roomType;
+
+    public BookingRequest(String customerName, String roomType) {
+        this.customerName = customerName;
+        this.roomType = roomType;
+    }
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public String getRoomType() {
+        return roomType;
+    }
+}
+
+public class UseCase8BookingHistoryReport {
     public static void main(String[] args) {
-        Room singleRoom = new SingleRoom();
-        Room doubleRoom = new DoubleRoom();
-        Room suiteRoom = new SuiteRoom();
+        System.out.println("--------------- Use Case 8: Booking History & Reporting ---------------");
 
-        RoomInventory inventory = new RoomInventory();
-        inventory.addRoomType(singleRoom.getRoomType(), 5);
-        inventory.addRoomType(doubleRoom.getRoomType(), 0);
-        inventory.addRoomType(suiteRoom.getRoomType(), 2);
+        InventoryServiceNew inventory = new InventoryServiceNew();
+        BookingHistory bookingHistory = new BookingHistory();
+        BookingServiceWithHistory bookingService = new BookingServiceWithHistory(inventory, bookingHistory);
+        BookingReportService reportService = new BookingReportService();
 
-        List<Room> roomList = new ArrayList<>();
-        roomList.add(singleRoom);
-        roomList.add(doubleRoom);
-        roomList.add(suiteRoom);
+        bookingService.addRequest("Alice", "Single");
+        bookingService.addRequest("Bob", "Double");
+        bookingService.addRequest("Charlie", "Single");
+        bookingService.addRequest("David", "Suite");
+        bookingService.addRequest("Eva", "Single");
+        bookingService.addRequest("Frank", "Double");
 
-        RoomSearchService searchService = new RoomSearchService(inventory, roomList);
-
-        System.out.println("=== Book My Stay App ===");
-        System.out.println("Use Case 4: Room Search & Availability Check");
-        System.out.println();
-
-        searchService.displayAvailableRooms();
+        bookingService.processBookings();
 
         System.out.println();
-        System.out.println("=== Inventory After Search ===");
-        System.out.println("Single Room : " + inventory.getAvailability("Single Room"));
-        System.out.println("Double Room : " + inventory.getAvailability("Double Room"));
-        System.out.println("Suite Room  : " + inventory.getAvailability("Suite Room"));
+        bookingService.displayAllocations();
+        inventory.displayInventory();
+
+        System.out.println();
+        reportService.printHistory(bookingHistory);
+
+        System.out.println();
+        reportService.printSummary(bookingHistory);
+
+        System.out.println("--------------- End of Use Case 8 ---------------");
     }
 }
