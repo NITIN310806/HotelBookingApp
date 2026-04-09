@@ -17,8 +17,8 @@ class BookingRecord {
         return guestName;
     }
 
-    public String getRoomType() {
-        return roomType;
+    public String getGuestName() {
+        return guestName;
     }
 
     public String getRoomId() {
@@ -68,7 +68,6 @@ class BookingHistory {
     public int size() {
         return bookings.size();
     }
-}
 
 class BookingReportService {
     public void printHistory(BookingHistory bookingHistory) {
