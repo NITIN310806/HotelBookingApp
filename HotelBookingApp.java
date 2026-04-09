@@ -22,8 +22,8 @@ class BookingRecord12 implements Serializable {
         return guestName;
     }
 
-    public String getRoomType() {
-        return roomType;
+    public String getGuestName() {
+        return guestName;
     }
 
     public String getRoomId() {
