@@ -1,21 +1,16 @@
-import java.io.*;
 import java.util.*;
 
-class BookingRecord12 implements Serializable {
-    private static final long serialVersionUID = 1L;
-    private final String guestName;
-    private final String roomType;
-    private final String roomId;
-    private final Date bookedAt;
-    private boolean cancelled;
-    private Date cancelledAt;
+class BookingRecord {
+    private String guestName;
+    private String roomType;
+    private String roomId;
+    private Date bookingTime;
 
-    public BookingRecord12(String guestName, String roomType, String roomId) {
+    public BookingRecord(String guestName, String roomType, String roomId) {
         this.guestName = guestName;
         this.roomType = roomType;
         this.roomId = roomId;
-        this.bookedAt = new Date();
-        this.cancelled = false;
+        this.bookingTime = new Date();
     }
 
     public String getGuestName() {
@@ -30,29 +25,86 @@ class BookingRecord12 implements Serializable {
         return roomId;
     }
 
-    public boolean isCancelled() {
-        return cancelled;
-    }
-
-    public void cancel() {
-        if (cancelled) return;
-        this.cancelled = true;
-        this.cancelledAt = new Date();
+    public Date getBookingTime() {
+        return bookingTime;
     }
 
     @Override
     public String toString() {
-        String status = cancelled ? "CANCELLED" : "CONFIRMED";
-        String when = cancelled ? ", cancelledAt=" + cancelledAt : "";
-        return "BookingRecord{guest='" + guestName + "', roomType='" + roomType + "', roomId='" + roomId + "', bookedAt=" + bookedAt + when + ", status=" + status + '}';
+        return "BookingRecord{" +
+                "guestName='" + guestName + '\'' +
+                ", roomType='" + roomType + '\'' +
+                ", roomId='" + roomId + '\'' +
+                ", bookingTime=" + bookingTime +
+                '}';
     }
 }
 
-class InventoryService12 implements Serializable {
-    private static final long serialVersionUID = 1L;
-    private final Map<String, Integer> inventory = new LinkedHashMap<>();
+class BookingHistory {
+    private List<BookingRecord> bookings;
 
-    public InventoryService12() {
+    public BookingHistory() {
+        this.bookings = new ArrayList<>();
+    }
+
+    public void add(BookingRecord booking) {
+        bookings.add(booking);
+    }
+
+    public List<BookingRecord> getAll() {
+        return Collections.unmodifiableList(bookings);
+    }
+
+    public List<BookingRecord> getByRoomType(String roomType) {
+        List<BookingRecord> filtered = new ArrayList<>();
+        for (BookingRecord booking : bookings) {
+            if (booking.getRoomType().equalsIgnoreCase(roomType)) {
+                filtered.add(booking);
+            }
+        }
+        return Collections.unmodifiableList(filtered);
+    }
+
+    public int size() {
+        return bookings.size();
+    }
+
+class BookingReportService {
+    public void printHistory(BookingHistory bookingHistory) {
+        System.out.println("-- Booking History (chronological) --");
+        for (BookingRecord record : bookingHistory.getAll()) {
+            System.out.println(record);
+        }
+    }
+
+    public void printSummary(BookingHistory bookingHistory) {
+        System.out.println("-- Booking Summary Report --");
+        System.out.println("Total confirmed bookings: " + bookingHistory.size());
+
+        Map<String, Integer> countByType = new HashMap<>();
+        for (BookingRecord record : bookingHistory.getAll()) {
+            countByType.put(record.getRoomType(), countByType.getOrDefault(record.getRoomType(), 0) + 1);
+        }
+
+        System.out.println("Confirmed bookings by room type:");
+        for (Map.Entry<String, Integer> entry : countByType.entrySet()) {
+            System.out.println("  " + entry.getKey() + ": " + entry.getValue());
+        }
+
+        if (bookingHistory.size() > 0) {
+            BookingRecord first = bookingHistory.getAll().get(0);
+            BookingRecord last = bookingHistory.getAll().get(bookingHistory.size() - 1);
+            System.out.println("First confirmed booking: " + first.getGuestName() + " (" + first.getRoomId() + ")");
+            System.out.println("Last confirmed booking: " + last.getGuestName() + " (" + last.getRoomId() + ")");
+        }
+    }
+}
+
+class InventoryServiceNew {
+    private Map<String, Integer> inventory;
+
+    public InventoryServiceNew() {
+        inventory = new LinkedHashMap<>();
         inventory.put("Single", 3);
         inventory.put("Double", 2);
         inventory.put("Suite", 1);
@@ -66,157 +118,111 @@ class InventoryService12 implements Serializable {
         inventory.put(roomType, inventory.get(roomType) - 1);
     }
 
-    public void increment(String roomType) {
-        inventory.put(roomType, inventory.getOrDefault(roomType, 0) + 1);
-    }
-
-    public Map<String, Integer> getInventory() {
-        return Collections.unmodifiableMap(inventory);
-    }
-
-    public void display() {
-        System.out.println("Inventory: " + inventory);
+    public void displayInventory() {
+        System.out.println("Inventory status: " + inventory);
     }
 }
 
-class BookingHistory12 implements Serializable {
-    private static final long serialVersionUID = 1L;
-    private final List<BookingRecord12> history = new ArrayList<>();
+class BookingServiceWithHistory {
+    private Queue<BookingRequest> requestQueue = new LinkedList<>();
+    private Map<String, Set<String>> allocatedRooms = new HashMap<>();
+    private Set<String> allAllocatedIds = new HashSet<>();
 
-    public void add(BookingRecord12 record) {
-        history.add(record);
-    }
+    private InventoryServiceNew inventory;
+    private BookingHistory bookingHistory;
 
-    public List<BookingRecord12> all() {
-        return Collections.unmodifiableList(history);
-    }
-
-    public void display() {
-        System.out.println("Booking History:");
-        for (BookingRecord12 rec : history) {
-            System.out.println("  " + rec);
-        }
-    }
-}
-
-class PersistenceService12 {
-    private static final String FILE_NAME = "system_state.ser";
-
-    public static void saveState(InventoryService12 inventory, BookingHistory12 history) {
-        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(FILE_NAME))) {
-            oos.writeObject(inventory);
-            oos.writeObject(history);
-            System.out.println("System state saved to " + FILE_NAME);
-        } catch (IOException e) {
-            System.err.println("Error saving state: " + e.getMessage());
-        }
-    }
-
-    public static SystemState12 loadState() {
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(FILE_NAME))) {
-            InventoryService12 inventory = (InventoryService12) ois.readObject();
-            BookingHistory12 history = (BookingHistory12) ois.readObject();
-            System.out.println("System state loaded from " + FILE_NAME);
-            return new SystemState12(inventory, history);
-        } catch (FileNotFoundException e) {
-            System.out.println("No saved state found, starting with fresh state.");
-            return new SystemState12(new InventoryService12(), new BookingHistory12());
-        } catch (IOException | ClassNotFoundException e) {
-            System.err.println("Error loading state: " + e.getMessage() + ". Starting with fresh state.");
-            return new SystemState12(new InventoryService12(), new BookingHistory12());
-        }
-    }
-}
-
-class SystemState12 {
-    private final InventoryService12 inventory;
-    private final BookingHistory12 history;
-
-    public SystemState12(InventoryService12 inventory, BookingHistory12 history) {
+    public BookingServiceWithHistory(InventoryServiceNew inventory, BookingHistory bookingHistory) {
         this.inventory = inventory;
-        this.history = history;
+        this.bookingHistory = bookingHistory;
     }
 
-    public InventoryService12 getInventory() {
-        return inventory;
+    public void addRequest(String guestName, String roomType) {
+        requestQueue.offer(new BookingRequest(guestName, roomType));
     }
 
-    public BookingHistory12 getHistory() {
-        return history;
+    private String generateRoomId(String roomType) {
+        String id;
+        do {
+            id = roomType.substring(0, 1).toUpperCase() + (int) (Math.random() * 1000);
+        } while (allAllocatedIds.contains(id));
+        return id;
     }
-}
 
-class BookingService12 {
-    private final InventoryService12 inventory;
-    private final BookingHistory12 history;
-    private final Set<String> allocatedIds = new HashSet<>();
+    public void processBookings() {
+        while (!requestQueue.isEmpty()) {
+            BookingRequest req = requestQueue.poll();
+            String type = req.getRoomType();
 
-    public BookingService12(InventoryService12 inventory, BookingHistory12 history) {
-        this.inventory = inventory;
-        this.history = history;
-        // Restore allocated IDs from history
-        for (BookingRecord12 record : history.all()) {
-            if (!record.isCancelled()) {
-                allocatedIds.add(record.getRoomId());
+            if (inventory.hasAvailability(type)) {
+                String roomId = generateRoomId(type);
+                allAllocatedIds.add(roomId);
+
+                allocatedRooms.putIfAbsent(type, new HashSet<>());
+                allocatedRooms.get(type).add(roomId);
+
+                inventory.decrement(type);
+
+                BookingRecord record = new BookingRecord(req.getCustomerName(), type, roomId);
+                bookingHistory.add(record);
+
+                System.out.println("Reservation confirmed for " + req.getCustomerName() + " -> Room " + roomId);
+            } else {
+                System.out.println("No rooms available for " + req.getCustomerName() + " (" + type + ")");
             }
         }
     }
 
-    public void confirmBooking(String guestName, String roomType) {
-        if (!inventory.hasAvailability(roomType)) {
-            System.out.println("No rooms available for " + guestName + " (" + roomType + ")");
-            return;
-        }
-        String roomId;
-        do {
-            roomId = roomType.substring(0, 1).toUpperCase() + (int) (Math.random() * 1000);
-        } while (allocatedIds.contains(roomId));
-        allocatedIds.add(roomId);
-        inventory.decrement(roomType);
-        BookingRecord12 record = new BookingRecord12(guestName, roomType, roomId);
-        history.add(record);
-        System.out.println("Confirmed booking: " + guestName + " -> " + roomId + " (" + roomType + ")");
+    public void displayAllocations() {
+        System.out.println("Allocated rooms: " + allocatedRooms);
     }
 }
 
-public class UseCase12DataPersistenceRecovery {
+class BookingRequest {
+    private String customerName;
+    private String roomType;
+
+    public BookingRequest(String customerName, String roomType) {
+        this.customerName = customerName;
+        this.roomType = roomType;
+    }
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public String getRoomType() {
+        return roomType;
+    }
+}
+
+public class UseCase8BookingHistoryReport {
     public static void main(String[] args) {
-        System.out.println("--- Use Case 12: Data Persistence & System Recovery ---");
+        System.out.println("--------------- Use Case 8: Booking History & Reporting ---------------");
 
-        // Simulate initial state
-        InventoryService12 inventory = new InventoryService12();
-        BookingHistory12 history = new BookingHistory12();
-        BookingService12 bookingService = new BookingService12(inventory, history);
+        InventoryServiceNew inventory = new InventoryServiceNew();
+        BookingHistory bookingHistory = new BookingHistory();
+        BookingServiceWithHistory bookingService = new BookingServiceWithHistory(inventory, bookingHistory);
+        BookingReportService reportService = new BookingReportService();
 
-        bookingService.confirmBooking("Alice", "Single");
-        bookingService.confirmBooking("Bob", "Double");
-        bookingService.confirmBooking("Charlie", "Single");
+        bookingService.addRequest("Alice", "Single");
+        bookingService.addRequest("Bob", "Double");
+        bookingService.addRequest("Charlie", "Single");
+        bookingService.addRequest("David", "Suite");
+        bookingService.addRequest("Eva", "Single");
+        bookingService.addRequest("Frank", "Double");
 
-        System.out.println("\nBefore persistence:");
-        inventory.display();
-        history.display();
+        bookingService.processBookings();
 
-        // Save state
-        PersistenceService12.saveState(inventory, history);
+        System.out.println();
+        bookingService.displayAllocations();
+        inventory.displayInventory();
 
-        // Simulate restart by loading state
-        System.out.println("\nSimulating system restart...");
-        SystemState12 loadedState = PersistenceService12.loadState();
-        InventoryService12 loadedInventory = loadedState.getInventory();
-        BookingHistory12 loadedHistory = loadedState.getHistory();
+        System.out.println();
+        reportService.printHistory(bookingHistory);
 
-        System.out.println("\nAfter recovery:");
-        loadedInventory.display();
-        loadedHistory.display();
+        System.out.println();
+        reportService.printSummary(bookingHistory);
 
-        // Continue operations
-        BookingService12 continuedService = new BookingService12(loadedInventory, loadedHistory);
-        continuedService.confirmBooking("David", "Suite");
-
-        System.out.println("\nAfter additional booking:");
-        loadedInventory.display();
-        loadedHistory.display();
-
-        System.out.println("--- End Use Case 12 ---");
+        System.out.println("--------------- End of Use Case 8 ---------------");
     }
 }
